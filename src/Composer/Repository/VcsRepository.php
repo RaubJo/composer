@@ -87,6 +87,7 @@ class VcsRepository extends ArrayRepository implements ConfigurableRepositoryInt
             'hg' => 'Composer\Repository\Vcs\HgDriver',
             'perforce' => 'Composer\Repository\Vcs\PerforceDriver',
             'fossil' => 'Composer\Repository\Vcs\FossilDriver',
+            'radicle' => 'Composer\Repository\Vcs\RadicleDriver',
             // svn must be last because identifying a subversion server for sure is practically impossible
             'svn' => 'Composer\Repository\Vcs\SvnDriver',
         ];
