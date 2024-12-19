@@ -831,7 +831,8 @@
                 { "$ref": "#/definitions/path-repository" },
                 { "$ref": "#/definitions/artifact-repository" },
                 { "$ref": "#/definitions/pear-repository" },
-                { "$ref": "#/definitions/package-repository" }
+                { "$ref": "#/definitions/package-repository" },
+                { "$ref": "#/definitions/radicle-repository" }
             ]
         },
         "composer-repository": {
@@ -991,6 +992,21 @@
                             "items": { "$ref": "#/definitions/inline-package" }
                         }
                     ]
+                }
+            }
+        },
+        "radicle-repository": {
+            "type": "object",
+            "required": ["type", "url"],
+            "properties": {
+                "type": { "type": "string", "enum": ["radicle"] },
+                "rid": { "type": "string" },
+                "branch": { "type": "string" },
+                "seeds": { 
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
