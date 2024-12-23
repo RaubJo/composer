@@ -91,4 +91,33 @@ class VersionParser extends SemverVersionParser
 
         return $sorted[0] === $normalizedFrom;
     }
+
+     /**
+     * Normalizes a branch name to be able to perform comparisons on it.
+     *
+     * @param string $name
+     *
+     * @return string
+     */
+    public function normalizeBranch($name)
+    {
+        $name = trim((string) $name);
+
+        // This is for radicle support https://www.radicle.xyz
+        // Radicle's node IDs are 48 characters long ex: username@z6MkvJJUbdoMZ9v2uSWSTg67RFgsFYBvpTy67Yv575cMVoM1
+        if(preg_match('/@.{48}\/(.*)/', $name, $matches)) {
+            $name = array_pop($matches);
+        }
+
+        if (preg_match('{^v?(\d++)(\.(?:\d++|[xX*]))?(\.(?:\d++|[xX*]))?(\.(?:\d++|[xX*]))?$}i', $name, $matches)) {
+            $version = '';
+            for ($i = 1; $i < 5; ++$i) {
+                $version .= isset($matches[$i]) ? str_replace(array('*', 'X'), 'x', $matches[$i]) : '.x';
+            }
+
+            return str_replace('x', '9999999', $version) . '-dev';
+        }
+
+        return 'dev-' . $name;
+    }
 }

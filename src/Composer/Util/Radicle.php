@@ -17,13 +17,12 @@ use Composer\IO\IOInterface;
 use Composer\Pcre\Preg;
 
 /**
- * @author Jordi Boggiano <j.boggiano@seld.be>
+ * @author Joseph Raub <josephraub@proton.me>
  */
 class Radicle
 {
     /** @var string|false|null */
     private static $version = false;
-
     /** @var IOInterface */
     protected $io;
     /** @var Config */
@@ -44,31 +43,53 @@ class Radicle
     }
 
     /**
-     * Clone a radicle repo to $cwd
+     * Clone a radicle repo to a directory.
      *
-     * @param string $rid
-     * @param string  $cwd
+     * @param string $rid  The Radicle Repository ID. (RID)
+     * @param string  $dir  The Cache directory to clone into.
+     * @param null|array $seeds  The specified seed nodes to clone from.
+     * 
      * @return boolean
      */
-    public function clone(string $rid, string $cwd): bool
+    public function clone(string $rid, string $dir, array $seeds = []): bool
     {
-        $this->process->execute(sprintf('rad clone %s', $rid), $output, $cwd);
+        if (!empty($seeds)) {
+            $seeds = implode(' ', array_map(fn($seed) => sprintf('--seed %s', $seed), $seeds));
+        }
+
+        $rid = $this->parseRid($rid);
+
+        $this->process->execute(trim(sprintf('rad clone %s %s %s', $rid, $dir, $seeds ?: '')), $output);
 
         return $this->processOutput($output);
     }
 
     /**
-     * Sync a radicle node with the rad network.
+     * Sync a radicle node with the rad network potentially fetching new state.
      *
      * @param string $rid
      * @param string $cwd
      * @return boolean
      */
-    public function sync(string $rid, string $cwd): bool
+    public function sync(string $rid, string $dir, array $seeds = []): bool
     {
-        $this->process->execute('rad sync', $output, $cwd.$this->getName($rid));
+        if (!empty($seeds)) {
+            $seeds = implode(' ', array_map(fn($seed) => sprintf('--seed %s', $seed), $seeds));
+        }
+
+        $this->process->execute(trim(sprintf('rad sync --fetch %s %s %s', $rid, $dir, $seeds ?: '')), $output, $dir);
 
         return $this->processOutput($output);
+    }
+
+    /**
+    * Parse the rid and return the id without the 'rid:' prefix
+     */
+    protected function parseRid(string $rid): string
+    {
+        $parts = explode('rid:', $rid);
+
+        return (string) end($parts);
     }
 
     /**
@@ -79,11 +100,11 @@ class Radicle
      */
     public function getInfo(string $rid): array
     {
-        $this->process->execute(sprintf('rad inspect --payload %s', $rid), $output);
-        $j= json_decode($output, true);
-        // var_dump($j);
-        return $j;
+        $rid = $this->parseRid($rid);
 
+        $this->process->execute(sprintf('rad inspect --payload %s', $rid), $output);
+
+        return json_decode($output, true);
     }
 
     /**
@@ -105,7 +126,7 @@ class Radicle
      */
     public function getDefaultBranch(string $rid): string
     {
-        return  $this->getInfo($rid)['xyz.radicle.project']['name'];
+        return  $this->getInfo($rid)['xyz.radicle.project']['defaultBranch'];
     }
 
     /**

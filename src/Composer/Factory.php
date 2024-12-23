@@ -544,6 +544,7 @@ class Factory
         $dm->setDownloader('phar', new Downloader\PharDownloader($io, $config, $httpDownloader, $eventDispatcher, $cache, $fs, $process));
         $dm->setDownloader('file', new Downloader\FileDownloader($io, $config, $httpDownloader, $eventDispatcher, $cache, $fs, $process));
         $dm->setDownloader('path', new Downloader\PathDownloader($io, $config, $httpDownloader, $eventDispatcher, $cache, $fs, $process));
+        $dm->setDownloader('radicle', new Downloader\RadicleDownloader($io, $config, $process, $fs));
 
         return $dm;
     }

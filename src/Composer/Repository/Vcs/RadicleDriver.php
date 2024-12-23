@@ -15,11 +15,10 @@ namespace Composer\Repository\Vcs;
 use Composer\Cache;
 use Composer\Config;
 use Composer\Pcre\Preg;
-use Composer\Json\JsonFile;
 use Composer\IO\IOInterface;
 use Composer\Util\Filesystem;
 use Composer\Util\ProcessExecutor;
-use Composer\Util\Radicle as RadicleUtil;
+use Composer\Util\Radicle as Util;
 
 /**
  * @author Joseph Raub <josephraub@proton.me>
@@ -28,16 +27,34 @@ class RadicleDriver extends VcsDriver
 {
     /** @var array<int|string, string> Map of tag name (can be turned to an int by php if it is a numeric name) to identifier */
     protected $tags;
+
     /** @var array<int|string, string> Map of branch name (can be turned to an int by php if it is a numeric name) to identifier */
     protected $branches;
+
     /** @var string */
     protected $rootIdentifier;
+
     /** @var string */
     protected $repoDir;
+
     /** @var string */
     protected $name;
-    /** @var string */
+
+    /** 
+     * The Repository ID (RID)
+     * 
+     * @link https://radicle.xyz/guides/protocol#repository-identifier-rid
+     * 
+     * @var string 
+    */
     protected $rid;
+
+    /**
+     * The Radicle helper
+     *
+     * @var \Composer\Util\Radicle
+     */
+    protected $util;
 
 
     /**
@@ -45,8 +62,11 @@ class RadicleDriver extends VcsDriver
      */
     public function initialize(): void
     {
+
+       
         $fs = new Filesystem();
-        $radicle = new RadicleUtil($this->io, $this->config, $this->process, $fs);
+        $this->util = new Util($this->io, $this->config, $this->process, $fs);
+
         $this->rid = $this->url;
 
         if (!Cache::isUsable($this->config->get('cache-vcs-dir'))) {
@@ -59,30 +79,26 @@ class RadicleDriver extends VcsDriver
             throw new \RuntimeException('Can not clone '.$this->url.' to access package information. The "'.dirname($this->repoDir).'" directory is not writable by the current user.');
         }
 
-        if(!is_dir($this->repoDir)) {
-            mkdir($this->repoDir);
+
+        if(!is_dir($this->repoDir) || $fs->isDirEmpty($this->repoDir)) {
+            $this->util->clone($this->rid, $this->repoDir, $this->getSeeds());
         }
 
-        if($fs->isDirEmpty($this->repoDir)) {
-            $radicle->clone($this->url, $this->repoDir);
-        } else {
-            if (!$radicle->sync($this->url, $this->repoDir)) {
-                if (!is_dir($this->repoDir)) {
-                    throw new \RuntimeException('Failed to clone '.$this->url.' to read package information from it');
-                }
+        // } else {
+        //     if (!$util->sync($this->url, $this->repoDir)) {
+        //         if (!is_dir($this->repoDir)) {
+        //             throw new \RuntimeException('Failed to clone '.$this->url.' to read package information from it');
+        //         }
 
-                $this->io->writeError('<error>Failed to update '.$this->url.', package information from this repository may be outdated</error>');
-            }
-        }
+        //         $this->io->writeError('<error>Failed to update '.$this->url.', package information from this repository may be outdated</error>');
+        //     }
+        // }
 
         $this->getTags();
         $this->getBranches();
 
         $this->cache = new Cache($this->io, $this->config->get('cache-repo-dir').'/'.Preg::replace('{[^a-z0-9.]}i', '-', $this->url));
-        $this->cache->setReadOnly($this->config->get('cache-read-only'));
-
-       
-        $this->url = $this->repoDir.'/'.$radicle->getName($this->rid);
+        $this->cache->setReadOnly($this->config->get('cache-read-only'));  
     }
 
     /**
@@ -94,7 +110,7 @@ class RadicleDriver extends VcsDriver
             throw new \RuntimeException('Invalid git identifier detected. Identifier must not start with a -, given: ' . $identifier);
         }
 
-        $resource = sprintf('%s:%s', 'master', $file);
+        $resource = sprintf('%s:%s', $this->getRootIdentifier(), $file);
         $this->process->execute(sprintf('git show %s', $resource), $content, $this->getPath());
 
         if (trim($content) === '') {
@@ -123,10 +139,7 @@ class RadicleDriver extends VcsDriver
     public function getRootIdentifier(): string
     {
         if (null === $this->rootIdentifier) {
-
-            $radicle = new RadicleUtil($this->io, $this->config, $this->process, new Filesystem());
-
-            return  $this->rootIdentifier = $radicle->getDefaultBranch($this->rid);
+            return  $this->rootIdentifier = $this->util->getDefaultBranch($this->rid);
         }
 
         return $this->rootIdentifier;
@@ -139,7 +152,7 @@ class RadicleDriver extends VcsDriver
      */
     public function getPath(): string
     {
-        return $this->config->get('cache-vcs-dir') . '/' . Preg::replace('{[^a-z0-9.]}i', '-', $this->rid) . '/';
+        return $this->config->get('cache-vcs-dir') . '/' . Preg::replace('{[^a-z0-9.]}i', '-', $this->url) . '/';
     }
 
     /**
@@ -147,9 +160,12 @@ class RadicleDriver extends VcsDriver
      */
     public function getBranches(): array
     {
-        if (null === $this->branches) {
+        if (is_null($this->branches)) {
             $branches = [];
-            $this->process->execute('git branch --no-color --no-abbrev -v', $output, $this->getPath());
+            
+            // We need --all to get remote branches on other nodes that might've not been synced to the rad remote.
+            $this->process->execute('git branch --all --no-color --no-abbrev -v', $output, $this->getPath());
+
             foreach ($this->process->splitLines($output) as $branch) {
                 if ($branch !== '' && !Preg::isMatch('{^ *[^/]+/HEAD }', $branch)) {
                     if (Preg::isMatchStrictGroups('{^(?:\* )? *(\S+) *([a-f0-9]+)(?: .*)?$}', $branch, $match) && $match[1][0] !== '-') {
@@ -169,7 +185,7 @@ class RadicleDriver extends VcsDriver
      */
     public function getTags(): array
     {
-        if (null === $this->tags) {
+        if (is_null($this->tags)) {
             $this->tags = [];
 
             $this->process->execute('git show-ref --tags --dereference', $output, $this->getPath());
@@ -212,9 +228,7 @@ class RadicleDriver extends VcsDriver
      */
     public function hasComposerFile(string $identifier): bool
     {
-        $radicle = new RadicleUtil($this->io, $this->config, $this->process, new Filesystem());
-
-        return is_file($this->getPath().$radicle->getName($this->rid).'/composer.json');
+        return is_file($this->getPath().'composer.json');
     }
 
     /**
@@ -233,6 +247,14 @@ class RadicleDriver extends VcsDriver
     public static function supports(IOInterface $io, Config $config, string $url, bool $deep = false): bool
     {
         return Preg::isMatch('/rad:.+/', $url);
+    }
+
+    /** 
+     * Get the seeds specified to fetch the repo from.
+     */
+    protected function getSeeds(): array
+    {
+        return !empty($this->repoConfig['seeds']) ? (array) $this->repoConfig['seeds'] : [];
     }
 
 }

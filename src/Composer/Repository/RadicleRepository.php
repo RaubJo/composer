@@ -1,14 +1,6 @@
-<?php declare(strict_types=1);
+<?php 
 
-/*
- * This file is part of Composer.
- *
- * (c) Nils Adermann <naderman@naderman.de>
- *     Jordi Boggiano <j.boggiano@seld.be>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
+declare(strict_types=1);
 
 namespace Composer\Repository;
 
@@ -30,9 +22,9 @@ use Composer\IO\IOInterface;
 use Composer\Config;
 
 /**
- * @author Jordi Boggiano <j.boggiano@seld.be>
+ * @author Joseph Raub <josephraub@proton.me>
  */
-class VcsRepository extends ArrayRepository implements ConfigurableRepositoryInterface
+class RadicleRepository extends VcsRepository
 {
     /** @var string */
     protected $url;
@@ -77,21 +69,11 @@ class VcsRepository extends ArrayRepository implements ConfigurableRepositoryInt
      */
     public function __construct(array $repoConfig, IOInterface $io, Config $config, HttpDownloader $httpDownloader, ?EventDispatcher $dispatcher = null, ?ProcessExecutor $process = null, ?array $drivers = null, ?VersionCacheInterface $versionCache = null)
     {
-        parent::__construct();
         $this->drivers = $drivers ?: [
-            'github' => 'Composer\Repository\Vcs\GitHubDriver',
-            'gitlab' => 'Composer\Repository\Vcs\GitLabDriver',
-            'bitbucket' => 'Composer\Repository\Vcs\GitBitbucketDriver',
-            'git-bitbucket' => 'Composer\Repository\Vcs\GitBitbucketDriver',
-            'git' => 'Composer\Repository\Vcs\GitDriver',
-            'hg' => 'Composer\Repository\Vcs\HgDriver',
-            'perforce' => 'Composer\Repository\Vcs\PerforceDriver',
-            'fossil' => 'Composer\Repository\Vcs\FossilDriver',
-            // svn must be last because identifying a subversion server for sure is practically impossible
-            'svn' => 'Composer\Repository\Vcs\SvnDriver',
+            'radicle' => 'Composer\Repository\Vcs\RadicleDriver',
         ];
 
-        $this->url = $repoConfig['url'] = Platform::expandPath($repoConfig['url']);
+        $this->url = $repoConfig['url'];
         $this->io = $io;
         $this->type = $repoConfig['type'] ?? 'vcs';
         $this->isVerbose = $io->isVerbose();
@@ -103,7 +85,7 @@ class VcsRepository extends ArrayRepository implements ConfigurableRepositoryInt
         $this->processExecutor = $process ?? new ProcessExecutor($io);
     }
 
-    public function getRepoName()
+    public function getRepoName(): string
     {
         $driverClass = get_class($this->getDriver());
         $driverType = array_search($driverClass, $this->drivers);
@@ -189,7 +171,7 @@ class VcsRepository extends ArrayRepository implements ConfigurableRepositoryInt
 
         $driver = $this->getDriver();
         if (!$driver) {
-            throw new \InvalidArgumentException('No driver found to handle VCS repository '.$this->url);
+            throw new \InvalidArgumentException('No driver found to handle Radicle repository '.$this->url);
         }
 
         $this->versionParser = new VersionParser;
