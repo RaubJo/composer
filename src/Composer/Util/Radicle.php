@@ -1,15 +1,5 @@
 <?php declare(strict_types=1);
 
-/*
- * This file is part of Composer.
- *
- * (c) Nils Adermann <naderman@naderman.de>
- *     Jordi Boggiano <j.boggiano@seld.be>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Composer\Util;
 
 use Composer\Config;
@@ -65,7 +55,7 @@ class Radicle
     }
 
     /**
-     * Sync a radicle node with the rad network potentially fetching new state.
+     * Sync a radicle repo with the rad network potentially fetching new state.
      *
      * @param string $rid
      * @param string $cwd
@@ -93,7 +83,7 @@ class Radicle
     }
 
     /**
-     * Get repository information.
+     * Get repository information based on the identity document.
      *
      * @param string $rid
      * @return array
@@ -141,11 +131,6 @@ class Radicle
         if(Preg::match('/Error: all seeds timed out/', $output, $matches)) {
             return true;
         }
-
-        // if(Preg::match('/Error: (\w.+)/', $output, $matches)) {
-        //     $this->throwException(ucfirst($matches[1]));
-        //     return false;
-        // }
 
         return true;
     }

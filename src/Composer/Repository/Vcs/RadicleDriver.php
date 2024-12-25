@@ -1,15 +1,5 @@
 <?php declare(strict_types=1);
 
-/*
- * This file is part of Composer.
- *
- * (c) Nils Adermann <naderman@naderman.de>
- *     Jordi Boggiano <j.boggiano@seld.be>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Composer\Repository\Vcs;
 
 use Composer\Cache;
@@ -21,6 +11,12 @@ use Composer\Util\ProcessExecutor;
 use Composer\Util\Radicle as Util;
 
 /**
+ * The Radicle Driver
+ * 
+ * Radicle is a decentralized code forge built on git.
+ * 
+ * @link https://www.radicle.xyz
+ * 
  * @author Joseph Raub <josephraub@proton.me>
  */
 class RadicleDriver extends VcsDriver
@@ -82,17 +78,15 @@ class RadicleDriver extends VcsDriver
 
         if(!is_dir($this->repoDir) || $fs->isDirEmpty($this->repoDir)) {
             $this->util->clone($this->rid, $this->repoDir, $this->getSeeds());
+        } else {
+            if (!$this->util->sync($this->url, $this->repoDir, $this->getSeeds())) {
+                if (!is_dir($this->repoDir)) {
+                    throw new \RuntimeException('Failed to clone '.$this->url.' to read package information from it');
+                }
+
+                $this->io->writeError('<error>Failed to update '.$this->url.', package information from this repository may be outdated</error>');
+            }
         }
-
-        // } else {
-        //     if (!$util->sync($this->url, $this->repoDir)) {
-        //         if (!is_dir($this->repoDir)) {
-        //             throw new \RuntimeException('Failed to clone '.$this->url.' to read package information from it');
-        //         }
-
-        //         $this->io->writeError('<error>Failed to update '.$this->url.', package information from this repository may be outdated</error>');
-        //     }
-        // }
 
         $this->getTags();
         $this->getBranches();
